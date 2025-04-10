@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Property Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    nav#desktop-nav {
+      background: #1b1b1b;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 30px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    .logo {
+      font-size: 20px;
+      font-weight: bold;
+      color: #00c2cb;
+    }
+
+    .nav-links {
+      list-style: none;
+      display: flex;
+      gap: 20px;
+    }
+
+    .nav-links li a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+      transition: color 0.3s;
+    }
+
+    .nav-links li a:hover {
+      color: #00c2cb;
+    }
+
+    #map {
+      flex-grow: 1;
+      height: calc(100vh - 120px); /* Adjust based on header + footer */
+      width: 100%;
+    }
+
+    .popup-image {
+      width: 100%;
+      max-width: 200px;
+      border-radius: 6px;
+      margin-top: 5px;
+    }
+
+    footer {
+      background: #1b1b1b;
+      color: white;
+      text-align: center;
+      padding: 12px 20px;
+      font-size: 14px;
+      box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+
+  <nav id="desktop-nav">
+    <div class="logo">🏠 Property Map</div>
+    <div>
+      <ul class="nav-links">
+        <li><a href="index.html">Map</a></li>
+        <li><a href="listing.html">Listing</a></li>
+        <li><a href="add-property.html">Add Property</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div id="map"></div>
+
+  <footer>
+    &copy; 2025 Sreng Chettra - All rights reserved.
+  </footer>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-omnivore/leaflet-omnivore.min.js"></script>
+
+  <script>
+    const map = L.map('map').setView([11.55, 104.9], 12);
+
+    // Satellite base layer
+    L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+      attribution: '&copy; Google Maps',
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+    }).addTo(map);
+
+    const customIcon = L.icon({
+      iconUrl: 'icons/my-pin.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34]
+    });
+
+    fetch('get-properties.php')
+      .then(res => res.json())
+      .then(properties => {
+        properties.forEach(prop => {
+          if (!prop.lat || !prop.lng) return;
+
+          const marker = L.marker([prop.lat, prop.lng], { icon: customIcon }).addTo(map);
+
+          let popupContent = `
+            <strong><a href="property-detail.html?id=${prop.id}" style="text-decoration:none;color:#007bff">${prop.title}</a></strong><br>
+            Price: $${prop.price}<br>
+            Size: ${prop.size}<br>
+            ${prop.owner_type ? `<b>${prop.owner_type}:</b> ${prop.owner_phone}<br>` : ''}
+          `;
+
+          if (prop.image && typeof prop.image === 'string' && prop.image.trim().length > 0) {
+            const img = new Image();
+            img.onload = () => {
+              popupContent += `<img class="popup-image" src="${prop.image}" alt="Property image">`;
+              marker.bindPopup(popupContent);
+            };
+            img.onerror = () => {
+              marker.bindPopup(popupContent);
+            };
+            img.src = prop.image;
+          } else {
+            marker.bindPopup(popupContent);
+          }
+
+          if (prop.kml_file && prop.kml_file.endsWith('.kml')) {
+            omnivore.kml(prop.kml_file).addTo(map);
+          }
+        });
+      })
+      .catch(err => {
+        console.error("Error loading properties:", err);
+      });
+  </script>
+</body>
+</html>

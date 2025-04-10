@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Property Details</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background-color: #f5f5f5;
+    }
+
+    .header {
+      background-color: #007bff;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 20px;
+    }
+
+    .container {
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    #propertyTitle {
+      color: #007bff;
+      margin-bottom: 20px;
+    }
+
+    .layout {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .left-column {
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .right-column {
+      flex: 2;
+      min-width: 300px;
+    }
+
+    .section {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+
+    .section-title {
+      color: #228b90;
+      font-weight: bold;
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    .info-grid p {
+      margin: 6px 0;
+    }
+
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .image-grid img {
+      width: 100%;
+      border-radius: 6px;
+      object-fit: cover;
+    }
+
+    #map {
+      height: 300px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-top: 15px;
+      text-decoration: none;
+      color: #007bff;
+      font-weight: bold;
+    }
+
+    @media (max-width: 768px) {
+      .layout {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">🏠 Property Details</div>
+
+  <div class="container">
+    <h1 id="propertyTitle"></h1>
+    <div id="map"></div>
+    <div id="propertyDetail">Loading...</div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const propertyId = urlParams.get('id');
+
+    if (!propertyId) {
+      document.getElementById('propertyDetail').innerHTML = '<p>Property ID is missing.</p>';
+    } else {
+      fetch(`get-property-detail.php?id=${propertyId}`)
+        .then(res => res.json())
+        .then(prop => {
+          document.getElementById('propertyTitle').textContent = prop.title;
+
+          const container = document.getElementById('propertyDetail');
+
+          let propertyImages = prop.property_images.map(img => `<img src="${img}" alt="Property Photo">`).join('');
+          let titleDeedImages = prop.title_images.map(img => `<img src="${img}" alt="Title Deed">`).join('');
+          let priceHistory = '';
+
+          if (prop.price_history && prop.price_history.length > 0) {
+            priceHistory = `<div class="section">
+              <div class="section-title">📊 Price History</div>
+              <ul>${prop.price_history.map(h => `<li>$${h.price} - ${new Date(h.updated_at).toLocaleString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</li>`).join('')}</ul>
+            </div>`;
+          }
+
+          container.innerHTML = `
+            <div class="layout">
+              <div class="left-column">
+                <div class="section">
+                  <div class="section-title">Property Information</div>
+                  <div class="info-grid">
+                    <p><strong>Property Type:</strong> ${prop.property_type}</p>
+                    <p><strong>Purpose:</strong> ${prop.purpose}</p>
+                    <p><strong>Address:</strong> ${prop.province}, ${prop.khan}, ${prop.sangkat}</p>
+                    <p><strong>Latitude:</strong> ${prop.lat}</p>
+                    <p><strong>Longitude:</strong> ${prop.lng}</p>
+                    <p><strong>Road Type:</strong> ${prop.road_type || '-'}</p>
+                    <p><strong>Title Deed Type:</strong> ${prop.title_deed_type || '-'}</p>
+                    <p><strong>Title Deed Number:</strong> ${prop.title_deed_number || '-'}</p>
+                    <p><strong>Land Size:</strong> ${prop.size}</p>
+                    <p><strong>Width:</strong> ${prop.width || '-'}</p>
+                    <p><strong>Length:</strong> ${prop.length || '-'}</p>
+                    <p><strong>Building Size:</strong> ${prop.building_size || '-'}</p>
+                    <p><strong>Description:</strong> ${prop.description}</p>
+                    ${prop.owner_type ? `<p><strong>${prop.owner_type}:</strong> ${prop.owner_phone}</p>` : ''}
+                  </div>
+                </div>
+
+                <div class="section">
+                  <div class="section-title">Asking Price Information</div>
+                  <div class="info-grid">
+                    <p><strong>Record Price Date:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    <p><strong>Total Price:</strong> $<span id="currentPrice">${prop.price}</span></p>
+                  </div>
+                  <label for="newPrice">Update Price to:</label>
+                  <input id="newPrice" type="number" placeholder="Enter new price"> 
+                  <button onclick="updatePrice(${prop.id})" style="background:#28a745;color:white;padding:5px 10px;border:none;border-radius:5px;">Update</button>
+                </div>
+
+                ${priceHistory}
+              </div>
+
+              <div class="right-column">
+                <div class="section">
+                  <div class="section-title">🏘 Property Pictures</div>
+                  <div class="image-grid">${propertyImages}</div>
+                </div>
+                <div class="section">
+                  <div class="section-title">📄 Title Deed Images</div>
+                  <div class="image-grid">${titleDeedImages}</div>
+                </div>
+              </div>
+            </div>
+
+            <a class="back-link" href="listing.html">⬅ Back to Listings</a>
+          `;
+
+          const map = L.map('map', {
+            center: [prop.lat, prop.lng],
+            zoom: 16,
+            layers: [
+              L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                attribution: '&copy; Google Maps',
+                subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+              })
+            ]
+          });
+
+          const customIcon = L.icon({
+            iconUrl: 'icons/my-pin.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34]
+          });
+
+          L.marker([prop.lat, prop.lng], { icon: customIcon }).addTo(map)
+            .bindPopup(prop.title)
+            .openPopup();
+
+          if (prop.kml_file && prop.kml_file.endsWith('.kml')) {
+            const kmlLayer = omnivore.kml(prop.kml_file);
+            kmlLayer.addTo(map);
+          }
+        });
+    }
+
+    function updatePrice(id) {
+      const newPrice = document.getElementById('newPrice').value;
+      if (!newPrice) return alert("Please enter a new price");
+
+      fetch('update-price.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `id=${id}&price=${newPrice}`
+      })
+      .then(res => res.text())
+      .then(response => {
+        alert(response);
+        location.reload(); // Refresh after update
+      });
+    }
+  </script>
+
+  <script src="https://unpkg.com/leaflet-omnivore/leaflet-omnivore.min.js"></script>
+</body>
+</html>

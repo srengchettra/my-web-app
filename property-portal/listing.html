@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Property Listing</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f4f4f4;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: #333;
+      color: white;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .header a {
+      color: white;
+      text-decoration: none;
+      margin-left: 15px;
+      font-weight: bold;
+    }
+
+    .search-box {
+      margin: 10px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .search-box input {
+      padding: 8px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    .search-box button {
+      padding: 8px 12px;
+      font-weight: bold;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .container {
+      padding: 20px;
+      flex: 1;
+    }
+
+    .property {
+      background: white;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+
+    .property img {
+      max-width: 200px;
+      max-height: 150px;
+      border-radius: 6px;
+      object-fit: cover;
+      margin-right: 20px;
+    }
+
+    .property-details {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .property-details h2 {
+      margin: 0 0 10px;
+    }
+
+    .property-details p {
+      margin: 5px 0;
+    }
+
+    .actions {
+      margin-top: 10px;
+    }
+
+    .actions a {
+      margin-right: 10px;
+      color: #007bff;
+      text-decoration: none;
+    }
+
+    .actions a.delete {
+      color: red;
+    }
+
+    .footer {
+      background: #222;
+      color: white;
+      text-align: center;
+      padding: 10px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>🏠 Property Listing</h1>
+    <div>
+      <a href="index.html">Map</a>
+      <a href="add-property.html">Add Property</a>
+    </div>
+  </div>
+
+  <div class="search-box">
+    <input type="text" id="searchTitle" placeholder="Search by title..." />
+    <input type="number" id="minPrice" placeholder="Min Price" />
+    <input type="number" id="maxPrice" placeholder="Max Price" />
+    <button onclick="filterListings()">Search</button>
+  </div>
+
+  <div class="container" id="listingContainer">Loading properties...</div>
+
+  <div class="footer">
+    &copy; 2025 SRENG CHETTRA
+  </div>
+
+  <script>
+    let allProperties = [];
+
+    fetch('get-properties.php')
+      .then(res => res.json())
+      .then(properties => {
+        allProperties = properties;
+        renderListings(allProperties);
+      })
+      .catch(err => {
+        document.getElementById('listingContainer').innerHTML = '<p>Error loading properties.</p>';
+        console.error(err);
+      });
+
+    function renderListings(properties) {
+      const container = document.getElementById('listingContainer');
+      container.innerHTML = '';
+
+      if (properties.length === 0) {
+        container.innerHTML = '<p>No properties found.</p>';
+        return;
+      }
+
+      properties.forEach(prop => {
+        const propertyEl = document.createElement('div');
+        propertyEl.className = 'property';
+
+        propertyEl.innerHTML = `
+          <img src="${prop.image || 'icons/no-image.png'}" alt="${prop.title}">
+          <div class="property-details">
+            <h2>
+              <a href="property-detail.html?id=${prop.id}" style="color:#007BFF; text-decoration:none;">
+                ${prop.title}
+              </a>
+            </h2>
+            <p><strong>📍 Location:</strong> ${prop.sangkat}, ${prop.khan}, ${prop.province}</p>
+            <p><strong>Price:</strong> $${prop.price}</p>
+            <p><strong>Size:</strong> ${prop.size}</p>
+            <p><strong>Type:</strong> ${prop.property_type || '-'}</p>
+            <p><strong>Purpose:</strong> ${prop.purpose || '-'}</p>
+            <div class="actions">
+              <a href="property-detail.html?id=${prop.id}">🔍 View</a>
+              <a href="#" class="delete" onclick="deleteProperty(${prop.id})">🗑 Delete</a>
+            </div>
+          </div>
+        `;
+
+        container.appendChild(propertyEl);
+      });
+    }
+
+    function filterListings() {
+      const titleQuery = document.getElementById('searchTitle').value.toLowerCase();
+      const minPrice = parseFloat(document.getElementById('minPrice').value);
+      const maxPrice = parseFloat(document.getElementById('maxPrice').value);
+
+      const filtered = allProperties.filter(prop => {
+        const matchesTitle = prop.title.toLowerCase().includes(titleQuery);
+        const price = parseFloat(prop.price);
+        const matchesMin = isNaN(minPrice) || price >= minPrice;
+        const matchesMax = isNaN(maxPrice) || price <= maxPrice;
+        return matchesTitle && matchesMin && matchesMax;
+      });
+
+      renderListings(filtered);
+    }
+
+    function deleteProperty(id) {
+      if (confirm("Are you sure you want to delete this property?")) {
+        fetch(`delete-property.php?id=${id}`)
+          .then(res => res.text())
+          .then(response => {
+            alert(response);
+            location.reload();
+          });
+      }
+    }
+  </script>
+</body>
+</html>
