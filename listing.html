@@ -213,7 +213,8 @@
 
     function deleteProperty(id) {
       if (confirm("Are you sure you want to delete this property?")) {
-        fetch(`delete-property.php?id=${id}`)
+        fetch(`https://habits-linux-bumper-al.trycloudflare.com/api/delete-property/${id}`)
+
           .then(res => res.text())
           .then(response => {
             alert(response);
